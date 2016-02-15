@@ -37,10 +37,12 @@ const GeocodeService = imports.geocodeService;
 const MainWindow = imports.mainWindow;
 const Maps = imports.gi.GnomeMaps;
 const NotificationManager = imports.notificationManager;
+const OpenTripPlanner = imports.openTripPlanner;
 const OSMEdit = imports.osmEdit;
 const OSMTypeSearchEntry = imports.osmTypeSearchEntry;
 const PlaceStore = imports.placeStore;
 const RouteService = imports.routeService;
+const RouteQuery = imports.routeQuery;
 const Settings = imports.settings;
 const Utils = imports.utils;
 
@@ -55,8 +57,10 @@ let geocodeService = null;
 let networkMonitor = null;
 let checkInManager = null;
 let contactStore = null;
+let openTripPlanner = null;
 let osmEdit = null;
 let normalStartup = true;
+let routeQuery = null;
 
 const _ensuredTypes = [WebKit2.WebView,
                        OSMTypeSearchEntry.OSMTypeSearchEntry];
@@ -246,6 +250,7 @@ const Application = new Lang.Class({
 
     _initServices: function() {
         settings       = Settings.getSettings('org.gnome.Maps');
+        routeQuery     = new RouteQuery.RouteQuery();
         routeService   = new RouteService.GraphHopper();
         geoclue        = new Geoclue.Geoclue();
         geocodeService = new GeocodeService.GeocodeService();
@@ -256,6 +261,7 @@ const Application = new Lang.Class({
         contactStore = new Maps.ContactStore();
         contactStore.load();
         osmEdit = new OSMEdit.OSMEdit();
+        openTripPlanner = new OpenTripPlanner.OpenTripPlanner();
     },
 
     _createWindow: function() {

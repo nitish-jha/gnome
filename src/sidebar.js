@@ -48,6 +48,7 @@ const Sidebar = new Lang.Class({
                         'modeBikeToggle',
                         'modeCarToggle',
                         'modePedestrianToggle',
+                        'modeTransitToggle',
                         'timeInfo' ],
 
     _init: function(mapView) {
@@ -55,33 +56,66 @@ const Sidebar = new Lang.Class({
 
         this._mapView = mapView;
 
+        Utils.debug('before _initInstructionList');
+
+        this._query = Application.routeQuery;
         this._initInstructionList();
+
+        Utils.debug('after _initInstructionList');
 
         this._initTransportationToggles(this._modePedestrianToggle,
                                         this._modeBikeToggle,
-                                        this._modeCarToggle);
+                                        this._modeCarToggle,
+                                        this._modeTransitToggle);
+
         this._initQuerySignals();
 
-        let query = Application.routeService.query;
+        Utils.debug('after creating query');
 
-        query.addPoint(0);
-        query.addPoint(1);
+        this._query.addPoint(0);
+        this._query.addPoint(1);
+        this._switchRoutingMode();
     },
 
-    _initTransportationToggles: function(pedestrian, bike, car) {
-        let query = Application.routeService.query;
+    _initTransportationToggles: function(pedestrian, bike, car, transit) {
         let transport = RouteQuery.Transportation;
 
         let onToggle = function(mode, button) {
-            if (button.active && query.transportation !== mode)
-                query.transportation = mode;
+            Utils.debug('onToggle: ' + mode + ', query.mode: ' + this._query.transportation);
+
+            let previousMode = this._query.transportation;
+
+            /* if the transportation mode changes to/from transit
+               change the routing engine */
+            if (button.active &&
+                ((mode !== transport.TRANSIT
+                  && previousMode === transport.TRANSIT)
+                 || (mode === transport.TRANSIT
+                     && previousMode !== transport.TRANSIT))) {
+                Utils.debug('switching routing mode');
+                this._switchRoutingMode(mode);
+            }
+
+            if (button.active && previousMode !== mode)
+                this._query.transportation = mode;
+
+            /*
+            if (button.active && mode === transport.TRANSIT) {
+                let openTripPlanner = Application.openTripPlanner;
+
+                openTripPlanner.fetchRouters(function(status, body) {
+                    Utils.debug('fetched routers: ' + status);
+                });
+            }
+            */
         };
         pedestrian.connect('toggled', onToggle.bind(this, transport.PEDESTRIAN));
         car.connect('toggled', onToggle.bind(this, transport.CAR));
         bike.connect('toggled', onToggle.bind(this, transport.BIKE));
+        transit.connect('toggled', onToggle.bind(this, transport.TRANSIT))
 
         let setToggles = function() {
-            switch(query.transportation) {
+            switch(Application.routeQuery.transportation) {
             case transport.PEDESTRIAN:
                 pedestrian.active = true;
                 break;
@@ -91,21 +125,37 @@ const Sidebar = new Lang.Class({
             case transport.BIKE:
                 bike.active = true;
                 break;
+            case transport.TRANSIT:
+                transit.active = true;
+                break;
             }
         };
 
         setToggles();
-        query.connect('notify::transportation', setToggles);
+        this._query.connect('notify::transportation', setToggles);
+    },
+
+    _switchRoutingMode: function(mode) {
+        let graphHopper = Application.routeService;
+        let openTripPlanner = Application.openTripPlanner;
+
+        if (mode === RouteQuery.Transportation.TRANSIT) {
+            Utils.debug('switching to transit');
+            graphHopper.disconnect();
+            openTripPlanner.connect();
+        } else {
+            Utils.debug('switch from transit');
+            openTripPlanner.disconnect();
+            graphHopper.connect();
+        }
     },
 
     _initQuerySignals: function() {
-        let query = Application.routeService.query;
-
-        query.connect('point-added', (function(obj, point, index) {
+        this._query.connect('point-added', (function(obj, point, index) {
             this._createRouteEntry(index, point);
         }).bind(this));
 
-        query.connect('point-removed', (function(obj, point, index) {
+        this._query.connect('point-removed', (function(obj, point, index) {
             let row = this._entryList.get_row_at_index(index);
             row.destroy();
         }).bind(this));
@@ -133,7 +183,7 @@ const Sidebar = new Lang.Class({
         if (type === RouteEntry.Type.FROM) {
             routeEntry.button.connect('clicked', (function() {
                 let lastIndex = this._entryList.get_children().length;
-                Application.routeService.query.addPoint(lastIndex - 1);
+                this._query.addPoint(lastIndex - 1);
             }).bind(this));
 
             this.bind_property('child-revealed',
@@ -142,7 +192,7 @@ const Sidebar = new Lang.Class({
         } else if (type === RouteEntry.Type.VIA) {
             routeEntry.button.connect('clicked', function() {
                 let row = routeEntry.get_parent();
-                Application.routeService.query.removePoint(row.get_index());
+                this._query.removePoint(row.get_index());
             });
         }
 
@@ -151,7 +201,6 @@ const Sidebar = new Lang.Class({
 
     _initInstructionList: function() {
         let route = Application.routeService.route;
-        let query = Application.routeService.query;
 
         route.connect('reset', (function() {
             this._clearInstructions();
@@ -159,12 +208,12 @@ const Sidebar = new Lang.Class({
 
             let length = this._entryList.get_children().length;
             for (let index = 1; index < (length - 1); index++) {
-                query.removePoint(index);
+                this._query.removePoint(index);
             }
         }).bind(this));
 
-        query.connect('notify', (function() {
-            if (query.isValid())
+        this._query.connect('notify', (function() {
+            if (this._query.isValid())
                 this._instructionStack.visible_child = this._instructionSpinner;
             else
                 this._clearInstructions();
@@ -183,11 +232,11 @@ const Sidebar = new Lang.Class({
 
             this._storeRouteTimeoutId = Mainloop.timeout_add(5000, (function() {
                 let placeStore = Application.placeStore;
-                let places = query.filledPoints.map(function(point) {
+                let places = this._query.filledPoints.map(function(point) {
                     return point.place;
                 });
                 let storedRoute = new StoredRoute.StoredRoute({
-                    transportation: query.transportation,
+                    transportation: this._query.transportation,
                     route: route,
                     places: places,
                     geoclue: Application.geoclue
@@ -227,7 +276,6 @@ const Sidebar = new Lang.Class({
 
     // Iterate over points and establish the new order of places
     _reorderRoutePoints: function(srcIndex, destIndex) {
-        let query = Application.routeService.query;
         let points = query.points;
         let srcPlace = this._draggedPoint.place;
 
@@ -236,19 +284,18 @@ const Sidebar = new Lang.Class({
 
         // Hold off on notifying the changes to query.points until
         // we have re-arranged the places.
-        query.freeze_notify();
+        this._query.freeze_notify();
 
         for (let i = destIndex; i !== (srcIndex + step); i += step) {
             // swap
             [points[i].place, srcPlace] = [srcPlace, points[i].place];
         }
 
-        query.thaw_notify();
+        this._query.thaw_notify();
     },
 
     _onDragDrop: function(row, context, x, y, time) {
-        let query = Application.routeService.query;
-        let srcIndex = query.points.indexOf(this._draggedPoint);
+        let srcIndex = this._query.points.indexOf(this._draggedPoint);
         let destIndex = row.get_index();
 
         this._reorderRoutePoints(srcIndex, destIndex);

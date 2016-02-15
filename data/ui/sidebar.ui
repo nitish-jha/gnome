@@ -94,6 +94,28 @@
                 </style>
               </object>
             </child>
+            <child>
+              <object class="GtkRadioButton" id="modeTransitToggle">
+                <property name="name">mode-transit-toggle</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="draw_indicator">False</property>
+                <property name="group">modeBikeToggle</property>
+                <property name="height-request">32</property>
+                <property name="width-request">42</property>
+                <child>
+                  <object class="GtkImage" id="mode-transit-image">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="icon-name">route-transit-symbolic</property>
+                  </object>
+                </child>
+                <style>
+                  <class name="transportation-mode-button"/>
+                </style>
+              </object>
+            </child>
             <style>
               <class name="linked"/>
             </style>

@@ -35,10 +35,6 @@ const Utils = imports.utils;
 const GraphHopper = new Lang.Class({
     Name: 'GraphHopper',
 
-    get query() {
-        return this._query;
-    },
-
     get route() {
         return this._route;
     },
@@ -49,16 +45,27 @@ const GraphHopper = new Lang.Class({
         this._baseURL = "https://graphhopper.com/api/1/route?";
         this._locale  = GLib.get_language_names()[0];
         this._route   = new Route.Route();
-        this._query   = new RouteQuery.RouteQuery();
         this.storedRoute = null;
+        this._query = Application.routeQuery;
 
-        this.query.connect('notify::points', (function() {
-            if (this.query.isValid())
-                this.fetchRoute(this.query.filledPoints,
-                                this._query.transportation);
-        }).bind(this));
+        print ('query: ' + this._query);
 
         this.parent();
+    },
+
+    connect: function() {
+        this._signalHandler = this._query.connect('notify::points', (function() {
+            if (this._query.isValid())
+                this.fetchRoute(this._query.filledPoints,
+                                this._query.transportation);
+        }).bind(this));
+    },
+
+    disconnect: function() {
+        if (this._signalHandler !== 0) {
+            this._query.disconnect(this._signalHandler);
+            this._signalHandler = 0;
+        }
     },
 
     _updateFromStored: function() {
