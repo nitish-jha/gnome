@@ -34,6 +34,7 @@
     <file>mapView.js</file>
     <file>mapWalker.js</file>
     <file>notification.js</file>
+    <file>openTripPlanner.js</file>
     <file>notificationManager.js</file>
     <file>osmAccountDialog.js</file>
     <file>osmConnection.js</file>
