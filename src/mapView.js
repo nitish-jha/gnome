@@ -181,7 +181,7 @@ const MapView = new Lang.Class({
         }).bind(this));
 
         query.connect('notify', (function() {
-                this.routeVisible = query.isValid();
+            this.routeVisible = query.isValid();
         }).bind(this));
     },
 

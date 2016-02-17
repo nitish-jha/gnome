@@ -128,8 +128,8 @@ const OSMConnection = new Lang.Class({
         call.set_function('/changeset/create');
 
         call.invoke_async(null, (function(call, res, userdata) {
-                    this._onChangesetOpened(call, callback);
-                                }).bind(this));
+            this._onChangesetOpened(call, callback);
+        }).bind(this));
     },
 
     _onChangesetOpened: function(call, callback) {
@@ -152,8 +152,8 @@ const OSMConnection = new Lang.Class({
         call.set_function(this._getCreateOrUpdateFunction(object, type));
 
         call.invoke_async(null, (function(call, res, userdata) {
-                    this._onObjectUploaded(call, callback);
-                                }).bind(this));
+            this._onObjectUploaded(call, callback);
+        }).bind(this));
     },
 
     _onObjectUploaded: function(call, callback) {
@@ -175,8 +175,8 @@ const OSMConnection = new Lang.Class({
         call.set_function(this._getDeleteFunction(object, type));
 
         call.invoke_async(null, (function(call, res, userdata) {
-                    this._onObjectDeleted(call, callback);
-                                }).bind(this));
+            this._onObjectDeleted(call, callback);
+        }).bind(this));
     },
 
     _onObjectDeleted: function(call, callback) {
@@ -194,8 +194,8 @@ const OSMConnection = new Lang.Class({
         call.set_function(this._getCloseChangesetFunction(changesetId));
 
         call.invoke_async(null, (function(call, res, userdata) {
-                    this._onChangesetClosed(call, callback);
-                                }).bind(this));
+            this._onChangesetClosed(call, callback);
+        }).bind(this));
     },
 
     _onChangesetClosed: function(call, callback) {
@@ -363,7 +363,7 @@ const OSMConnection = new Lang.Class({
                               this._oauthProxy.token + ":" +
                               this._oauthProxy.token_secret, null,
                               function(source, result, userData) {
-                                this._onPasswordStored(result, callback);
+                                  this._onPasswordStored(result, callback);
                               }.bind(this));
     },
 
