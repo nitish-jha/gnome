@@ -103,6 +103,13 @@ const OSM_FIELDS = [
         hint: _("The official name. This is typically what appears on signs.")
     },
     {
+        name: _("Address"),
+        tag: 'addr',
+        subtags: ['addr:street', 'addr:housenumber', 'addr:postcode'],
+        type: EditFieldType.ADDRESS
+    },
+
+    {
         name: _("Website"),
         tag: 'website',
         type: EditFieldType.TEXT,
@@ -166,6 +173,37 @@ const OSM_FIELDS = [
                   ['terminal', _("Terminal")],
                   ['service', _("Service")]]
     }];
+
+const OSMEditAddress = new Lang.Class({
+    Name: 'OSMEditAddress',
+    Extends: Gtk.Grid,
+    Template: 'resource:///org/gnome/Maps/ui/osm-edit-address.ui',
+    Children: [ 'street',
+                'number',
+                'post' ],
+
+    _init: function(params) {
+        let street = params.street;
+        delete params.street;
+
+        let number = params.number;
+        delete params.number;
+
+        let postCode = params.postCode;
+        delete params.postCode;
+
+        this.parent(params);
+
+        if (street)
+            this.street.text = street;
+
+        if (number)
+            this.number.text = number;
+
+        if (postCode)
+            this.post.text = postCode;
+    }
+});
 
 
 const OSMEditDialog = new Lang.Class({
@@ -604,6 +642,26 @@ const OSMEditDialog = new Lang.Class({
         this._currentRow++;
     },
 
+    _addOSMEditAddressEntry: function(fieldSpec, value) {
+        this._addOSMEditLabel(fieldSpec);
+
+        let addr = new OSMEditAddress({ street: value[0],
+                                           number: value[1],
+                                           postCode: value[2] });
+        let changedFunc = (function(entry, index) {
+            print("changed: %s %s".format(fieldSpec.subtags[index], entry.text));
+            this._osmObject.set_tag(fieldSpec.subtags[index], entry.text);
+            this._nextButton.sensitive = true;
+        }).bind(this);
+
+        addr.street.connect('changed', changedFunc.bind(this, addr.street, 0));
+        addr.number.connect('changed', changedFunc.bind(this, addr.number, 1));
+        addr.post.connect('changed', changedFunc.bind(this, addr.post, 2));
+
+        this._editorGrid.attach(addr, 1, this._currentRow, 1, 3);
+        this._currentRow += 3;
+    },
+
     /* update visible items in the "Add Field" popover */
     _updateAddFieldMenu: function() {
         /* clear old items */
@@ -618,9 +676,18 @@ const OSMEditDialog = new Lang.Class({
         /* add selectable items */
         for (let i = 0; i < OSM_FIELDS.length; i++) {
             let fieldSpec = OSM_FIELDS[i];
-            let value = this._osmObject.get_tag(fieldSpec.tag);
+            let hasValue = false;
 
-            if (value === null) {
+            if (fieldSpec.subtags) {
+                fieldSpec.subtags.forEach((function(tag) {
+                    if (this._osmObject.get_tag(tag))
+                        hasValue = true;
+                }).bind(this));
+            } else {
+                hasValue = this._osmObject.get_tag(fieldSpec.tag) !== null;
+            }
+
+            if (!hasValue) {
                 let button = new Gtk.Button({
                     visible: true, sensitive: true,
                     label: fieldSpec.name
@@ -636,7 +703,7 @@ const OSMEditDialog = new Lang.Class({
                     /* add a "placeholder" empty OSM tag to keep the add field
                      * menu updated, these tags will be filtered out if nothing
                      * is entered */
-                    this._osmObject.set_tag(fieldSpec.tag, '');
+                    this._osmObject.set_tag(fieldSpec.tag, null);
                     this._updateAddFieldMenu();
                 }).bind(this));
 
@@ -659,6 +726,9 @@ const OSMEditDialog = new Lang.Class({
         case EditFieldType.COMBO:
             this._addOSMEditComboEntry(fieldSpec, value);
             break;
+        case EditFieldType.ADDRESS:
+            this._addOSMEditAddressEntry(fieldSpec, value);
+            break;
         }
     },
 
@@ -671,8 +741,15 @@ const OSMEditDialog = new Lang.Class({
 
         for (let i = 0; i < OSM_FIELDS.length; i++) {
             let fieldSpec = OSM_FIELDS[i];
-            let value = osmObject.get_tag(fieldSpec.tag);
+            let value;
 
+            if (fieldSpec.subtags) {
+                value = fieldSpec.subtags.map(function(tag) {
+                    return osmObject.get_tag(tag);
+                });
+            } else {
+                value = osmObject.get_tag(fieldSpec.tag);
+            }
             if (value != null)
                 this._addOSMField(fieldSpec, value);
         }
